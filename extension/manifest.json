@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "GEMUL Professor — Auto Planejamento",
+  "version": "1.0.0",
+  "description": "Preenche automaticamente o planejamento de aulas no sistema GEMUL de Anápolis. Integrado com o Dashboard de Planejamento Docente.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "https://gemul-anapolis.com.br/*",
+    "http://gemul-anapolis.com.br/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemul-anapolis.com.br/*",
+        "http://gemul-anapolis.com.br/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "GEMUL Professor"
+  }
+}

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GEMUL Professor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    .header {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo { font-size: 22px; }
+    .title { font-weight: 700; font-size: 15px; }
+    .subtitle { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+
+    .section {
+      background: white;
+      border-radius: 10px;
+      margin: 10px;
+      padding: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+
+    .stat-row { display: flex; gap: 8px; }
+    .stat {
+      flex: 1;
+      text-align: center;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 10px 6px;
+    }
+    .stat-num { font-size: 22px; font-weight: 700; color: #2563eb; }
+    .stat-label { font-size: 10px; color: #64748b; margin-top: 2px; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-ok { background: #dcfce7; color: #16a34a; }
+    .status-warn { background: #fef9c3; color: #b45309; }
+    .status-error { background: #fee2e2; color: #dc2626; }
+
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      margin-bottom: 6px;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-success:hover { background: #15803d; }
+
+    .sync-time { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 6px; }
+
+    .tip {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #1d4ed8;
+      line-height: 1.5;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #2563eb;
+      border-radius: 99px;
+      transition: width 0.5s;
+    }
+    .progress-text { font-size: 11px; color: #64748b; text-align: right; }
+
+    input[type="file"] { display: none; }
+    label.btn { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">🎓</span>
+    <div>
+      <div class="title">GEMUL Professor</div>
+      <div class="subtitle">Auto Planejamento Docente</div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="section">
+    <div class="section-title">Status</div>
+    <div id="status-pill" class="status-pill status-warn">
+      <div class="dot"></div>
+      <span id="status-text">Verificando...</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="section">
+    <div class="section-title">Aulas Carregadas</div>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="stat-generated" style="color:#eab308">0</div>
+        <div class="stat-label">Geradas</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="stat-injected" style="color:#16a34a">0</div>
+        <div class="stat-label">Injetadas</div>
+      </div>
+    </div>
+    <div id="progress-wrap" style="display:none">
+      <div class="progress-bar"><div class="progress-fill" id="popup-progress-fill" style="width:0%"></div></div>
+      <div class="progress-text" id="popup-progress-text">0/0</div>
+    </div>
+    <div class="sync-time" id="sync-time">Nenhum dado importado</div>
+  </div>
+
+  <!-- Actions -->
+  <div class="section">
+    <div class="section-title">Ações</div>
+    <label class="btn btn-primary" for="import-json-file">
+      📂 Importar JSON do Dashboard
+    </label>
+    <input type="file" id="import-json-file" accept=".json" />
+    <button class="btn btn-secondary" id="open-gemul-btn">🌐 Abrir GEMUL</button>
+    <button class="btn btn-secondary" id="clear-data-btn">🗑 Limpar Dados Locais</button>
+  </div>
+
+  <!-- Tip -->
+  <div style="margin: 0 10px 10px">
+    <div class="tip">
+      💡 <strong>Como usar:</strong><br>
+      1. No Dashboard, clique em <em>"Exportar JSON"</em><br>
+      2. Importe aqui com o botão acima<br>
+      3. No GEMUL, use o widget flutuante para preencher
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
