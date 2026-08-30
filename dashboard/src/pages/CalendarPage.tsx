@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Zap, FileDown, RefreshCw, CheckCircle,
   Clock, Eye, AlertCircle, Loader2, Play, Pause,
-  Square, Sparkles, Check, ChevronRight, Target, BookOpen, Lightbulb, CheckSquare
+  Square, Sparkles, Check, ChevronRight, Target, BookOpen, Lightbulb, CheckSquare, RotateCcw, Database
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
@@ -11,6 +11,7 @@ import { db } from '../db';
 import { generateLesson } from '../services/ai';
 import { generatePDF } from '../services/pdf';
 import { normalizeDiscipline, normalizeBimestre } from '../services/normalizer';
+import { BNCC_1ANO } from '../data/bncc';
 import type { Lesson, Discipline, Bimestre } from '../types';
 
 const MONTH_NAMES = [
@@ -42,17 +43,47 @@ const DISCIPLINE_COLORS: Record<string, { bg: string; border: string; text: stri
   'Producao Textual': { bg: 'bg-teal-50/70', border: 'border-teal-200', text: 'text-teal-800', badge: 'bg-teal-100 text-teal-700' },
 };
 
-function determineBimestre(month: number): Bimestre {
-  if (month <= 3) return '1 Bimestre';
-  if (month <= 6) return '2 Bimestre';
-  if (month <= 9) return '3 Bimestre';
-  return '4 Bimestre';
+function isVacationMonth(month: number): boolean {
+  return month === 1 || month === 7;
+}
+
+function getBimestreForMonth(month: number): Bimestre | null {
+  if (month === 1 || month === 7) return null; // Férias
+  if (month >= 2 && month <= 4) return '1 Bimestre';
+  if (month >= 5 && month <= 6) return '2 Bimestre';
+  if (month >= 8 && month <= 9) return '3 Bimestre';
+  if (month >= 10 && month <= 12) return '4 Bimestre';
+  return null;
+}
+
+function getStartingLessonNumber(discipline: string, month: number): number {
+  const norm = normalizeDiscipline(discipline);
+  
+  const START_MAP: Record<number, Record<string, number>> = {
+    // 1º Bimestre (Fev, Mar, Abr)
+    2: { 'Arte': 1, 'Ciencias': 1, 'Educacao Fisica': 1, 'Ensino Religioso': 1, 'Geografia': 1, 'Historia': 1, 'Lingua Portuguesa': 1, 'Matematica': 1, 'Producao Textual': 1 },
+    3: { 'Arte': 5, 'Ciencias': 13, 'Educacao Fisica': 5, 'Ensino Religioso': 5, 'Geografia': 13, 'Historia': 13, 'Lingua Portuguesa': 21, 'Matematica': 21, 'Producao Textual': 5 },
+    4: { 'Arte': 9, 'Ciencias': 25, 'Educacao Fisica': 9, 'Ensino Religioso': 9, 'Geografia': 25, 'Historia': 25, 'Lingua Portuguesa': 41, 'Matematica': 41, 'Producao Textual': 9 },
+    // 2º Bimestre (Mai, Jun)
+    5: { 'Arte': 13, 'Ciencias': 37, 'Educacao Fisica': 13, 'Ensino Religioso': 13, 'Geografia': 37, 'Historia': 37, 'Lingua Portuguesa': 61, 'Matematica': 61, 'Producao Textual': 13 },
+    6: { 'Arte': 17, 'Ciencias': 49, 'Educacao Fisica': 17, 'Ensino Religioso': 17, 'Geografia': 49, 'Historia': 49, 'Lingua Portuguesa': 81, 'Matematica': 81, 'Producao Textual': 17 },
+    // 3º Bimestre (Ago, Set)
+    8: { 'Arte': 21, 'Ciencias': 67, 'Educacao Fisica': 21, 'Ensino Religioso': 22, 'Geografia': 64, 'Historia': 64, 'Lingua Portuguesa': 106, 'Matematica': 106, 'Producao Textual': 22 },
+    9: { 'Arte': 25, 'Ciencias': 79, 'Educacao Fisica': 25, 'Ensino Religioso': 26, 'Geografia': 76, 'Historia': 76, 'Lingua Portuguesa': 126, 'Matematica': 126, 'Producao Textual': 26 },
+    // 4º Bimestre (Out, Nov, Dez)
+    10: { 'Arte': 29, 'Ciencias': 91, 'Educacao Fisica': 29, 'Ensino Religioso': 30, 'Geografia': 88, 'Historia': 88, 'Lingua Portuguesa': 146, 'Matematica': 146, 'Producao Textual': 30 },
+    11: { 'Arte': 33, 'Ciencias': 103, 'Educacao Fisica': 33, 'Ensino Religioso': 34, 'Geografia': 100, 'Historia': 100, 'Lingua Portuguesa': 166, 'Matematica': 166, 'Producao Textual': 34 },
+    12: { 'Arte': 37, 'Ciencias': 115, 'Educacao Fisica': 37, 'Ensino Religioso': 38, 'Geografia': 112, 'Historia': 112, 'Lingua Portuguesa': 186, 'Matematica': 186, 'Producao Textual': 38 },
+  };
+
+  return START_MAP[month]?.[norm] || 1;
 }
 
 export default function CalendarPage() {
   const navigate = useNavigate();
-  const { config, matrixSkills, selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useAppStore();
+  const { config, selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useAppStore();
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [matrixSkillsCount, setMatrixSkillsCount] = useState<number>(0);
   
   // Generation State (Modo B - Piloto Total)
   const [isGenerating, setIsGenerating] = useState(false);
@@ -66,27 +97,49 @@ export default function CalendarPage() {
   const isPausedRef = useRef(false);
   const isCancelledRef = useRef(false);
 
-  const loadLessons = useCallback(async () => {
-    const all = await db.lessons.filter(l => l.month === selectedMonth && l.year === selectedYear).toArray();
-    const allMatrixSkills = await db.matrix.toArray();
+  const isVacation = isVacationMonth(selectedMonth);
+  const currentBimestre = getBimestreForMonth(selectedMonth);
 
-    const matrixByDisc = allMatrixSkills.reduce((acc, s) => {
+  const loadLessons = useCallback(async () => {
+    const isVac = isVacationMonth(selectedMonth);
+    const bim = getBimestreForMonth(selectedMonth);
+
+    // Se for mês de férias, limpa qualquer resquício
+    if (isVac || !bim) {
+      await db.lessons.filter(l => l.month === selectedMonth && l.year === selectedYear).delete();
+      setLessons([]);
+      setMatrixSkillsCount(0);
+      return;
+    }
+
+    const allMatrixSkills = await db.matrix.toArray();
+    const skillsInDb = allMatrixSkills.filter(s => normalizeBimestre(s.bimestre) === bim);
+    setMatrixSkillsCount(skillsInDb.length);
+
+    // Se a Matriz Curricular deste bimestre específico NÃO foi enviada pelo professor,
+    // não permite nenhuma aula fictícia salva no banco
+    if (skillsInDb.length === 0) {
+      await db.lessons.filter(l => l.month === selectedMonth && l.year === selectedYear).delete();
+      setLessons([]);
+      return;
+    }
+
+    const matrixByDisc = skillsInDb.reduce((acc, s) => {
       const norm = normalizeDiscipline(s.discipline);
       if (!acc[norm]) acc[norm] = [];
       acc[norm].push(s);
       return acc;
-    }, {} as Record<string, typeof allMatrixSkills>);
+    }, {} as Record<string, typeof skillsInDb>);
 
+    const all = await db.lessons.filter(l => l.month === selectedMonth && l.year === selectedYear).toArray();
     const repairedLessons: Lesson[] = [];
 
     for (const l of all) {
       const norm = normalizeDiscipline(l.discipline);
-      const availableSkills = (matrixByDisc[norm] || []).filter(s => normalizeBimestre(s.bimestre) === l.bimestre);
-      const skillsToUse = availableSkills.length > 0 ? availableSkills : (matrixByDisc[norm] || []);
-      const mappedSkill = skillsToUse.length > 0 ? skillsToUse[l.lessonNumber % skillsToUse.length] : null;
+      const availableSkills = matrixByDisc[norm] || [];
+      const mappedSkill = availableSkills.length > 0 ? availableSkills[l.lessonNumber % availableSkills.length] : null;
 
       const isInvalid = (val?: string) => !val || val === '...' || val.trim() === '' || val.length < 5;
-
       const needsRepair = isInvalid(l.skills) || isInvalid(l.knowledgeObjects) || isInvalid(l.methodology) || isInvalid(l.evaluation);
 
       if (needsRepair && mappedSkill) {
@@ -120,6 +173,8 @@ export default function CalendarPage() {
 
   useEffect(() => { loadLessons(); }, [loadLessons]);
 
+  const hasUploadedMatrixForMonth = matrixSkillsCount > 0;
+
   // Group lessons by discipline
   const byDiscipline = lessons.reduce((acc, l) => {
     const norm = normalizeDiscipline(l.discipline);
@@ -134,20 +189,16 @@ export default function CalendarPage() {
 
   /**
    * MODO B: PILOTO TOTAL DE GERAÇÃO EM LOTE
-   * Processa aula por aula sequencialmente (leves para computadores modestos),
-   * salvando no IndexedDB a cada aula gerada.
    */
   const handleStartBatchGeneration = async (targetDiscipline?: Discipline) => {
     if (!config) return toast.error('Configure os dados da professora nas Configurações!');
     if (!config.geminiApiKey) return toast.error('Configure a chave de API do Gemini nas Configurações!');
 
-    // Filtra aulas que estão pendentes ou que vieram com reticências/incompletas
     let targetLessons = lessons.filter(l => {
       const matchDisc = targetDiscipline ? normalizeDiscipline(l.discipline) === targetDiscipline : true;
       return matchDisc && (l.status === 'pending' || !l.methodology || l.methodology === '...' || l.methodology.length < 15);
     });
 
-    // Se todas já foram preenchidas, permite regenerar todas as aulas selecionadas
     if (targetLessons.length === 0) {
       targetLessons = lessons.filter(l => {
         return targetDiscipline ? normalizeDiscipline(l.discipline) === targetDiscipline : true;
@@ -162,7 +213,6 @@ export default function CalendarPage() {
     const total = targetLessons.length;
     let completed = 0;
 
-    // Agrupa por disciplina + data para identificar sequências do mesmo dia
     const sameDayGroups = new Map<string, Lesson[]>();
     for (const l of lessons) {
       const key = `${normalizeDiscipline(l.discipline)}|${l.lessonDate}`;
@@ -170,7 +220,6 @@ export default function CalendarPage() {
       sameDayGroups.get(key)!.push(l);
     }
 
-    // Carrega a matriz do banco para garantir que temos os dados mais recentes
     const allMatrixSkills = await db.matrix.toArray();
 
     for (const lesson of targetLessons) {
@@ -198,7 +247,7 @@ export default function CalendarPage() {
         total,
         discipline: DISCIPLINE_LABELS[normDisc] || normDisc,
         lessonNum: lesson.lessonNumber,
-        statusText: `Cruzando Matriz e escrevendo Metodologia da Aula ${lesson.lessonNumber}...`
+        statusText: `Cruzando Matriz enviada e escrevendo Metodologia da Aula ${lesson.lessonNumber}...`
       });
 
       try {
@@ -233,19 +282,16 @@ export default function CalendarPage() {
           updatedAt: new Date(),
         };
 
-        // Salva imediatamente no banco local (IndexedDB)
         if (lesson.id) {
           await db.lessons.update(lesson.id, updatedLesson);
         }
 
-        // Atualiza estado na memória
         setLessons(prev => prev.map(l => l.id === lesson.id ? updatedLesson : l));
 
       } catch (err: any) {
         console.error(`Erro na aula ${lesson.lessonNumber} (${normDisc}):`, err);
       }
 
-      // Intervalo de alívio térmico/processamento para não travar PCs mais modestos
       await new Promise(r => setTimeout(r, 450));
     }
 
@@ -269,30 +315,30 @@ export default function CalendarPage() {
     toast('Geração interrompida. As aulas já geradas continuam salvas!', { icon: '🛑' });
   };
 
-  /**
-   * Cria as 92 aulas exatas de Agosto de 2026 (idênticas ao GEMUL)
-   * e pré-associa as habilidades da Matriz Curricular
-   */
   const handleCreateMonthLessons = async () => {
     if (!config) return toast.error('Configure os dados da professora primeiro!');
-    if (lessons.length > 0) {
-      return toast.error('Já existem aulas cadastradas para este mês. Clique em "Limpar Mês" se quiser recriar.');
+    if (isVacationMonth(selectedMonth)) {
+      return toast.error('Janeiro e Julho são meses de férias escolares no GEMUL. Não há aulas letivas.');
     }
 
-    const bimestre = determineBimestre(selectedMonth);
-    const allMatrixSkills = await db.matrix.toArray();
+    const bimestre = getBimestreForMonth(selectedMonth);
+    if (!bimestre) return;
 
-    if (allMatrixSkills.length === 0) {
-      toast.error('A Matriz Curricular está vazia! Envie o arquivo Word/PDF na aba "Matriz Curricular" antes de montar a grade.');
-      setTimeout(() => navigate('/matriz'), 1000);
+    const allMatrixSkills = await db.matrix.toArray();
+    const skillsInDb = allMatrixSkills.filter(s => normalizeBimestre(s.bimestre) === bimestre);
+
+    if (skillsInDb.length === 0) {
+      toast.error(`A Matriz Curricular de ${MONTH_NAMES[selectedMonth]} (${bimestre}) ainda não foi enviada!`);
+      setTimeout(() => navigate('/matriz'), 1200);
       return;
     }
-        const matrixByDisc = allMatrixSkills.reduce((acc, s) => {
+
+    const matrixByDisc = skillsInDb.reduce((acc, s) => {
       const norm = normalizeDiscipline(s.discipline);
       if (!acc[norm]) acc[norm] = [];
       acc[norm].push(s);
       return acc;
-    }, {} as Record<string, typeof allMatrixSkills>);
+    }, {} as Record<string, typeof skillsInDb>);
 
     // Gera a grade de aulas dinamicamente para o mês e ano selecionados
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
@@ -314,86 +360,95 @@ export default function CalendarPage() {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const mStr = pad(selectedMonth);
 
+    const startArte = getStartingLessonNumber('Arte', selectedMonth);
     const arteDates = (fridays.length >= 4 ? fridays.slice(0, 4) : fridays).map((d, i) => ({
-      num: 21 + i,
+      num: startArte + i,
       date: `${pad(d)}/${mStr}/${selectedYear}`,
       day: 'Sexta'
     }));
 
+    const startCiencias = getStartingLessonNumber('Ciencias', selectedMonth);
     const cienciasDates: { num: number; date: string; day: string }[] = [];
     const wedList = wednesdays.length >= 4 ? wednesdays.slice(0, 4) : wednesdays;
     let cCount = 0;
     for (const w of wedList) {
       for (let k = 0; k < 3; k++) {
         if (cCount < 12) {
-          cienciasDates.push({ num: 67 + cCount, date: `${pad(w)}/${mStr}/${selectedYear}`, day: 'Quarta' });
+          cienciasDates.push({ num: startCiencias + cCount, date: `${pad(w)}/${mStr}/${selectedYear}`, day: 'Quarta' });
           cCount++;
         }
       }
     }
 
+    const startEdF = getStartingLessonNumber('Educacao Fisica', selectedMonth);
     const edfDates = (fridays.length >= 4 ? fridays.slice(0, 4) : fridays).map((d, i) => ({
-      num: 21 + i,
+      num: startEdF + i,
       date: `${pad(d)}/${mStr}/${selectedYear}`,
       day: 'Sexta'
     }));
 
+    const startER = getStartingLessonNumber('Ensino Religioso', selectedMonth);
     const erDates = (thursdays.length >= 4 ? thursdays.slice(0, 4) : thursdays).map((d, i) => ({
-      num: 22 + i,
+      num: startER + i,
       date: `${pad(d)}/${mStr}/${selectedYear}`,
       day: 'Quinta'
     }));
 
+    const startGeo = getStartingLessonNumber('Geografia', selectedMonth);
     const geoDates: { num: number; date: string; day: string }[] = [];
     const tueList = tuesdays.length >= 4 ? tuesdays.slice(0, 4) : tuesdays;
     let gCount = 0;
     for (const t of tueList) {
       for (let k = 0; k < 3; k++) {
         if (gCount < 12) {
-          geoDates.push({ num: 64 + gCount, date: `${pad(t)}/${mStr}/${selectedYear}`, day: 'Terça' });
+          geoDates.push({ num: startGeo + gCount, date: `${pad(t)}/${mStr}/${selectedYear}`, day: 'Terça' });
           gCount++;
         }
       }
     }
 
+    const startHist = getStartingLessonNumber('Historia', selectedMonth);
     const histDates: { num: number; date: string; day: string }[] = [];
     const monList = mondays.length >= 4 ? mondays.slice(0, 4) : mondays;
     let hCount = 0;
     for (const m of monList) {
       for (let k = 0; k < 3; k++) {
         if (hCount < 12) {
-          histDates.push({ num: 64 + hCount, date: `${pad(m)}/${mStr}/${selectedYear}`, day: 'Segunda' });
+          histDates.push({ num: startHist + hCount, date: `${pad(m)}/${mStr}/${selectedYear}`, day: 'Segunda' });
           hCount++;
         }
       }
     }
 
+    const startLP = getStartingLessonNumber('Lingua Portuguesa', selectedMonth);
     const lpDates: { num: number; date: string; day: string }[] = [];
     let lpCount = 0;
     for (let w = 0; w < 4; w++) {
       const weekDays = [mondays[w], tuesdays[w], wednesdays[w], thursdays[w], fridays[w]].filter(Boolean);
       for (const d of weekDays) {
         if (lpCount < 20) {
-          lpDates.push({ num: 106 + lpCount, date: `${pad(d)}/${mStr}/${selectedYear}`, day: 'Dia Útil' });
+          lpDates.push({ num: startLP + lpCount, date: `${pad(d)}/${mStr}/${selectedYear}`, day: 'Dia Útil' });
           lpCount++;
         }
       }
     }
 
+    const startMat = getStartingLessonNumber('Matematica', selectedMonth);
     const matDates: { num: number; date: string; day: string }[] = [];
     let matCount = 0;
     for (let w = 0; w < 4; w++) {
       const weekDays = [mondays[w], tuesdays[w], wednesdays[w], thursdays[w], fridays[w]].filter(Boolean);
       for (const d of weekDays) {
         if (matCount < 20) {
-          matDates.push({ num: 106 + matCount, date: `${pad(d)}/${mStr}/${selectedYear}`, day: 'Dia Útil' });
+          matDates.push({ num: startMat + matCount, date: `${pad(d)}/${mStr}/${selectedYear}`, day: 'Dia Útil' });
           matCount++;
         }
       }
     }
 
+    const startProd = getStartingLessonNumber('Producao Textual', selectedMonth);
     const prodDates = (thursdays.length >= 4 ? thursdays.slice(0, 4) : thursdays).map((d, i) => ({
-      num: 22 + i,
+      num: startProd + i,
       date: `${pad(d)}/${mStr}/${selectedYear}`,
       day: 'Quinta'
     }));
@@ -414,14 +469,13 @@ export default function CalendarPage() {
 
     for (const { discipline, lessons: lessonList } of schedule) {
       const norm = normalizeDiscipline(discipline);
-      const availableSkills = (matrixByDisc[norm] || []).filter(s => normalizeBimestre(s.bimestre) === bimestre);
-      const skillsToUse = availableSkills.length > 0 ? availableSkills : (matrixByDisc[norm] || []);
+      const skillsToUse = matrixByDisc[norm] || [];
 
       lessonList.forEach((item, index) => {
         const matrixIndex = skillsToUse.length > 0 ? index % skillsToUse.length : 0;
         const mappedSkill = skillsToUse.length > 0 ? skillsToUse[matrixIndex] : null;
         const thematicUnit = mappedSkill?.thematicUnit || 'Unidade Temática';
-        const skills = mappedSkill ? `${mappedSkill.skillCode} - ${mappedSkill.skillDescription}` : 'Habilidade BNCC';
+        const skills = mappedSkill ? `${mappedSkill.skillCode} - ${mappedSkill.skillDescription}` : 'Habilidade da Matriz';
         const knowledgeObjects = mappedSkill?.knowledgeObjects || 'Objetos de Conhecimento';
 
         const methodology = `1. Acolhida e Sondagem (5 min): Roda de conversa inicial para acolher as crianças e sondar os saberes prévios sobre ${thematicUnit}.\n2. Apresentação e Motivação (10 min): Explicação dialogada e contextualizada com recursos visuais do conteúdo ${knowledgeObjects}.\n3. Desenvolvimento da Atividade (20 min): Realização de atividade pedagógica prática orientada e no material didático com mediação da professora.\n4. Registro e Sistematização (10 min): Fixação e registro no caderno por meio de escrita espontânea e ilustrações.\n5. Fechamento da Aula (5 min): Roda de síntese coletiva e avaliação formativa do aprendizado.`;
@@ -447,21 +501,10 @@ export default function CalendarPage() {
       });
     }
 
+    await db.lessons.filter(l => l.month === selectedMonth && l.year === selectedYear).delete();
     await db.lessons.bulkAdd(sampleData.map(l => ({ ...l, createdAt: new Date(), updatedAt: new Date() })));
     await loadLessons();
-    toast.success(`🎉 ${sampleData.length} aulas de ${MONTH_NAMES[selectedMonth]}/${selectedYear} criadas e integradas à Matriz!`);
-  };
-
-  const handleExportJSON = async () => {
-    const data = JSON.stringify({ lessons, month: selectedMonth, year: selectedYear }, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `planejamento_${MONTH_NAMES[selectedMonth]}_${selectedYear}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('JSON exportado com sucesso!');
+    toast.success(`🎉 ${sampleData.length} aulas de ${MONTH_NAMES[selectedMonth]}/${selectedYear} (${bimestre}) montadas com sucesso!`);
   };
 
   return (
@@ -469,12 +512,20 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-blue-600" />
-            Grade Mensal — Acompanhamento de Aulas
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-blue-600" />
+              Grade Mensal — Acompanhamento de Aulas
+            </h2>
+            {!isVacation && hasUploadedMatrixForMonth && (
+              <span className="text-xs font-bold px-3 py-1 rounded-full border bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Matriz Enviada ({currentBimestre}: {matrixSkillsCount} habilidades)</span>
+              </span>
+            )}
+          </div>
           <p className="text-slate-500 mt-1">
-            Gere com IA e acompanhe o preenchimento de cada aula com base na Matriz Curricular.
+            Gere com IA e acompanhe o preenchimento de cada aula a partir da Matriz Curricular enviada.
           </p>
         </div>
 
@@ -499,65 +550,143 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Stats Summary Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card text-center py-4 bg-white border-slate-200">
-          <p className="text-3xl font-bold text-slate-800">{totalLessons}</p>
-          <p className="text-xs text-slate-500 font-medium mt-1">Total de Aulas no Mês</p>
-        </div>
-        <div className="card text-center py-4 bg-yellow-50/50 border-yellow-200">
-          <p className="text-3xl font-bold text-yellow-600">{generatedCount}</p>
-          <p className="text-xs text-yellow-700 font-medium mt-1">Geradas com a Matriz</p>
-        </div>
-        <div className="card text-center py-4 bg-emerald-50/50 border-emerald-200">
-          <p className="text-3xl font-bold text-emerald-600">{injectedCount}</p>
-          <p className="text-xs text-emerald-700 font-medium mt-1">Enviadas ao GEMUL</p>
-        </div>
-        <div className="card text-center py-4 bg-blue-50/50 border-blue-200">
-          <p className="text-3xl font-bold text-blue-600">
-            {totalLessons > 0 ? `${Math.round((generatedCount / totalLessons) * 100)}%` : '0%'}
-          </p>
-          <p className="text-xs text-blue-700 font-medium mt-1">Progresso do Mês</p>
-        </div>
-      </div>
-
-      {/* Main Action Bar (Modo B - Piloto Total) */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        {lessons.length === 0 ? (
-          <div className="flex flex-wrap items-center gap-3 w-full justify-between">
-            <div>
-              <p className="font-semibold text-slate-800 text-sm">Nenhuma aula montada para {MONTH_NAMES[selectedMonth]}/{selectedYear}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Clique ao lado para criar as 92 aulas de {MONTH_NAMES[selectedMonth]} já casadas com a sua Matriz Curricular.</p>
-            </div>
-            <button onClick={handleCreateMonthLessons} className="btn-primary flex items-center gap-2 shadow-md hover:scale-105 transition-all">
-              <Calendar className="w-4 h-4" />
-              <span>Montar Grade de Aulas ({MONTH_NAMES[selectedMonth]})</span>
+      {/* CONDITIONAL RENDERING: Férias vs Sem Matriz Enviada vs Grade Normal Ativa */}
+      {isVacation ? (
+        /* Estado 1: Férias / Recesso Escolar */
+        <div className="card bg-gradient-to-br from-amber-50 to-orange-50/50 border-amber-200 p-10 text-center space-y-4 rounded-2xl shadow-xs">
+          <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-3xl flex items-center justify-center mx-auto shadow-xs text-3xl">
+            🏖️
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold text-amber-900">
+              {MONTH_NAMES[selectedMonth]} — Mês de Férias / Recesso Escolar
+            </h3>
+            <p className="text-sm text-amber-700 max-w-lg mx-auto">
+              No calendário escolar oficial do GEMUL, o mês de {MONTH_NAMES[selectedMonth]} não possui dias letivos ou aulas para planejamento.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => setSelectedMonth(8)}
+              className="btn-primary text-xs py-2.5 px-5 shadow-sm"
+            >
+              Ir para Agosto (3º Bimestre Letivo)
             </button>
           </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3 w-full justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* MODO B: PILOTO TOTAL */}
-              <button
-                onClick={() => handleStartBatchGeneration()}
-                disabled={isGenerating}
-                className="btn-primary flex items-center gap-2 shadow-md hover:scale-105 transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-2.5 px-5"
-              >
-                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>🚀 Piloto Total: Gerar Mês Completo com IA</span>
-              </button>
-
-              <button
-                onClick={() => config && generatePDF(lessons, config, selectedMonth, selectedYear)}
-                className="btn-secondary text-xs flex items-center gap-1.5 py-2"
-              >
-                <FileDown className="w-4 h-4 text-red-600" />
-                Exportar PDF
-              </button>
+        </div>
+      ) : !hasUploadedMatrixForMonth ? (
+        /* Estado 2: Matriz do Bimestre Selecionado NÃO Enviada */
+        <div className="card bg-gradient-to-br from-blue-50 to-indigo-50/50 border-blue-200 p-10 text-center space-y-4 rounded-2xl shadow-xs">
+          <div className="w-16 h-16 bg-blue-100 text-[#00236f] rounded-3xl flex items-center justify-center mx-auto shadow-xs">
+            <Database className="w-8 h-8 text-[#00236f]" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Matriz Curricular de {MONTH_NAMES[selectedMonth]} ({currentBimestre}) Não Enviada</span>
+            </div>
+            <h3 className="text-xl font-bold text-[#00236f]">
+              Envie a Matriz Curricular para {MONTH_NAMES[selectedMonth]} ({currentBimestre})
+            </h3>
+            <p className="text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
+              O sistema monta e gera as aulas <strong>exclusivamente a partir da Matriz Curricular real enviada pelo professor</strong>.
+              Como a Matriz do <strong>{currentBimestre}</strong> ainda não foi anexada, envie o arquivo Word ou PDF na aba <strong>Matriz Curricular</strong> para liberar o planejamento deste mês.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => navigate('/matriz')}
+              className="btn-primary text-xs py-2.5 px-5 flex items-center gap-2 shadow-sm"
+            >
+              <Database className="w-4 h-4" />
+              <span>📂 Enviar Matriz do {currentBimestre}</span>
+            </button>
+            <button
+              onClick={() => setSelectedMonth(8)}
+              className="btn-secondary text-xs py-2.5 px-4"
+            >
+              Ir para Agosto (3º Bimestre Cadastrado)
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Estado 3: Grade Normal Ativa (Matriz Enviada com Sucesso) */
+        <>
+          {/* Stats Summary Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="card text-center py-4 bg-white border-slate-200">
+              <p className="text-3xl font-bold text-slate-800">{totalLessons}</p>
+              <p className="text-xs text-slate-500 font-medium mt-1">Total de Aulas no Mês</p>
+            </div>
+            <div className="card text-center py-4 bg-yellow-50/50 border-yellow-200">
+              <p className="text-3xl font-bold text-yellow-600">{generatedCount}</p>
+              <p className="text-xs text-yellow-700 font-medium mt-1">Geradas com a Matriz</p>
+            </div>
+            <div className="card text-center py-4 bg-emerald-50/50 border-emerald-200">
+              <p className="text-3xl font-bold text-emerald-600">{injectedCount}</p>
+              <p className="text-xs text-emerald-700 font-medium mt-1">Enviadas ao GEMUL</p>
+            </div>
+            <div className="card text-center py-4 bg-blue-50/50 border-blue-200">
+              <p className="text-3xl font-bold text-blue-600">
+                {totalLessons > 0 ? `${Math.round((generatedCount / totalLessons) * 100)}%` : '0%'}
+              </p>
+              <p className="text-xs text-blue-700 font-medium mt-1">Progresso do Mês</p>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Main Action Bar (Modo B - Piloto Total) */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            {lessons.length === 0 ? (
+              <div className="flex flex-wrap items-center gap-3 w-full justify-between">
+                <div>
+                  <p className="font-semibold text-slate-800 text-sm">Nenhuma aula montada para {MONTH_NAMES[selectedMonth]}/{selectedYear}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Clique ao lado para criar as 92 aulas de {MONTH_NAMES[selectedMonth]} ({currentBimestre}) casadas com a Matriz Curricular enviada.
+                  </p>
+                </div>
+                <button onClick={handleCreateMonthLessons} className="btn-primary flex items-center gap-2 shadow-md hover:scale-105 transition-all">
+                  <Calendar className="w-4 h-4" />
+                  <span>Montar Grade de Aulas ({MONTH_NAMES[selectedMonth]})</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3 w-full justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => handleStartBatchGeneration()}
+                    disabled={isGenerating}
+                    className="btn-primary flex items-center gap-2 shadow-md hover:scale-105 transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-2.5 px-5"
+                  >
+                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    <span>🚀 Piloto Total: Gerar Mês Completo com IA</span>
+                  </button>
+
+                  <button
+                    onClick={() => config && generatePDF(lessons, config, selectedMonth, selectedYear)}
+                    className="btn-secondary text-xs flex items-center gap-1.5 py-2"
+                  >
+                    <FileDown className="w-4 h-4 text-red-600" />
+                    Exportar PDF
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (confirm(`Deseja recriar as aulas de ${MONTH_NAMES[selectedMonth]}/${selectedYear} (${currentBimestre}) com a numeração e matriz enviadas deste mês?`)) {
+                      handleCreateMonthLessons();
+                    }
+                  }}
+                  className="btn-secondary text-xs flex items-center gap-1.5 py-2 hover:bg-blue-50 text-slate-600 hover:text-[#00236f] transition-all"
+                  title="Recria a grade deste mês específico com a numeração sequencial correta do ano letivo"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Recriar Grade de {MONTH_NAMES[selectedMonth]}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Progress & Live Generation Card */}
       {isGenerating && (

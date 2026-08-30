@@ -20,7 +20,7 @@ export interface UserAccount {
 
 const STORAGE_KEY = 'acq_edu_auth_session';
 const USERS_STORAGE_KEY = 'acq_edu_registered_users';
-const SECRET_SALT = 'ACQ_EDU_ALINE_CRISTINA_QUALTO_2026';
+const SECRET_SALT = 'ACQ_EDU_CRIPTO_SECURITY_MASTER_2026';
 
 /**
  * Autentica o usuário com email e senha, ou registra o novo usuário no primeiro acesso com a chave
@@ -110,35 +110,34 @@ export function generateLicenseKey(
  * Valida se uma chave digitada pelo usuário é legítima e calcula seu prazo de validade
  */
 export function validateLicenseKey(rawKey: string): { isValid: boolean; expiresAt: Date | null; planType: AuthSession['planType']; error?: string } {
-  if (!rawKey) return { isValid: false, expiresAt: null, planType: 'mensal', error: 'Digite a chave de licença.' };
+  if (!rawKey || !rawKey.trim()) {
+    return { isValid: false, expiresAt: null, planType: 'mensal', error: 'Digite a chave de licença.' };
+  }
 
   const clean = rawKey.trim().toUpperCase();
 
-  // Chaves Mestras de Demonstração e Teste
-  if (clean === 'ACQ-DEMO-2026' || clean === 'ACQ-ALINE-2026' || clean === 'ACQ-PROFESSOR-PRO') {
+  // 1. Chaves Mestras Oficiais Cadastradas Estritas
+  const MASTER_KEYS: Record<string, { planType: AuthSession['planType']; days: number }> = {
+    'ACQ-DEMO-2026': { planType: 'anual', days: 365 },
+    'ACQ-OFICIAL-2026': { planType: 'anual', days: 365 },
+    'ACQ-PROFESSOR-PRO': { planType: 'anual', days: 365 },
+  };
+
+  if (MASTER_KEYS[clean]) {
     const expiresAt = new Date();
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    return { isValid: true, expiresAt, planType: 'anual' };
+    expiresAt.setDate(expiresAt.getDate() + MASTER_KEYS[clean].days);
+    return { isValid: true, expiresAt, planType: MASTER_KEYS[clean].planType };
   }
 
+  // 2. Chaves Criptográficas Geradas com Checksum (formato: ACQ-PLANO-MES-XXXX-CHECKSUM)
   const parts = clean.split('-');
-  if (parts.length !== 5 && parts.length !== 4) {
-    if (clean.startsWith('ACQ-')) {
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      return { isValid: true, expiresAt, planType: 'mensal' };
-    }
-    return { isValid: false, expiresAt: null, planType: 'mensal', error: 'Formato de chave inválido. Exemplo: ACQ-MEN-AGO26-9F82-K4L1' };
-  }
-
-  // Verifica checksum se for chave gerada pelo algoritmo
-  if (parts.length === 5) {
+  if (parts.length === 5 && parts[0] === 'ACQ') {
     const base = `${parts[0]}-${parts[1]}-${parts[2]}-${parts[3]}`;
     const expectedChecksum = generateHash(base);
     const providedChecksum = parts[4];
 
     if (expectedChecksum !== providedChecksum) {
-      return { isValid: false, expiresAt: null, planType: 'mensal', error: 'Chave de licença inválida ou incorreta.' };
+      return { isValid: false, expiresAt: null, planType: 'mensal', error: 'Chave de licença inválida ou com caractere incorreto.' };
     }
 
     const typeCode = parts[1].toLowerCase();
@@ -162,9 +161,8 @@ export function validateLicenseKey(rawKey: string): { isValid: boolean; expiresA
     return { isValid: true, expiresAt, planType };
   }
 
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
-  return { isValid: true, expiresAt, planType: 'mensal' };
+  // Se não coincidir rigorosamente com nenhuma chave válida, REJEITA imediatamente!
+  return { isValid: false, expiresAt: null, planType: 'mensal', error: 'Chave de licença incorreta ou inválida.' };
 }
 
 /**

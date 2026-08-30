@@ -65,7 +65,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
 
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword === 'aline2026' || adminPassword === 'acq2026' || adminPassword === 'admin') {
+    if (adminPassword === 'acq2026' || adminPassword === 'acqmaster2026' || adminPassword === 'admin2026') {
       setIsAdminAuthenticated(true);
       const initial = generateLicenseKey('mensal', 'AGO26');
       setGeneratedKey(initial);
@@ -328,7 +328,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
                     onChange={e => setAdminPassword(e.target.value)}
                     autoFocus
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Dica: use <code>aline2026</code> ou <code>acq2026</code></p>
+                  <p className="text-[11px] text-slate-400 mt-1">Dica: use sua senha master de administrador</p>
                 </div>
                 <button type="submit" className="btn-primary w-full text-xs py-2.5">
                   Desbloquear Gerador de Chaves
