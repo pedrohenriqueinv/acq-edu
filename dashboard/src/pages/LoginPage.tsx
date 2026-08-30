@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Mail, Lock, Key, Info, ArrowRight, ShieldCheck, HelpCircle, Sparkles, Copy, Check, ExternalLink } from 'lucide-react';
+import { Mail, Lock, Key, Info, ArrowRight, ShieldCheck, HelpCircle, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { validateLicenseKey, saveAuthSession, generateLicenseKey, authenticateUser } from '../services/license';
+import { validateLicenseKey, saveAuthSession, authenticateUser } from '../services/license';
 
 interface LoginPageProps {
   onSuccess: () => void;
@@ -12,15 +12,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [licenseKey, setLicenseKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-
-  // Admin Generator State
-  const [adminPassword, setAdminPassword] = useState('');
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [generatedKey, setGeneratedKey] = useState<{ key: string; expiresAt: Date; planName: string } | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'teste' | 'mensal' | 'trimestral' | 'anual'>('mensal');
-  const [copiedKey, setCopiedKey] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,40 +55,6 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
     }, 600);
   };
 
-  const handleAdminAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPassword === 'acq2026' || adminPassword === 'acqmaster2026' || adminPassword === 'admin2026') {
-      setIsAdminAuthenticated(true);
-      const initial = generateLicenseKey('mensal', 'AGO26');
-      setGeneratedKey(initial);
-      toast.success('Modo Administrador Ativado!');
-    } else {
-      toast.error('Senha de administrador incorreta.');
-    }
-  };
-
-  const handleGenerateKey = () => {
-    const keyData = generateLicenseKey(selectedPlan, 'AGO26');
-    setGeneratedKey(keyData);
-    setCopiedKey(false);
-    toast.success(`Nova chave gerada para o plano ${keyData.planName}!`);
-  };
-
-  const handleCopyKey = () => {
-    if (!generatedKey) return;
-    navigator.clipboard.writeText(generatedKey.key);
-    setCopiedKey(true);
-    toast.success('Chave copiada para a área de transferência!');
-    setTimeout(() => setCopiedKey(false), 3000);
-  };
-
-  const handleCopyWhatsAppMessage = () => {
-    if (!generatedKey) return;
-    const msg = `Olá Professora! Seu acesso ao *ACQ Edu* (Alinhamento Curricular Qualificado) está liberado! 🚀\n\n🔑 *Sua Chave de Acesso:* ${generatedKey.key}\n📅 *Plano:* ${generatedKey.planName}\n⏳ *Validade:* até ${generatedKey.expiresAt.toLocaleDateString('pt-BR')}\n\n👉 Acesse o sistema pelo link: https://gemul-professor.vercel.app\n\nBom planejamento! 📚✨`;
-    navigator.clipboard.writeText(msg);
-    toast.success('Mensagem pronta para WhatsApp copiada!');
-  };
-
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-[#0d1c2f] flex flex-col font-sans selection:bg-blue-100">
       {/* TopAppBar */}
@@ -118,16 +76,6 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
             >
               <HelpCircle className="w-4 h-4" />
               <span>Ajuda / Suporte</span>
-            </button>
-
-            {/* Secret Admin Trigger */}
-            <button
-              type="button"
-              onClick={() => setShowAdminModal(true)}
-              title="Painel do Administrador (Gerador de Chaves)"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#00236f] hover:bg-blue-50 transition-all text-xs"
-            >
-              <Sparkles className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -280,7 +228,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
         <div className="flex flex-col md:flex-row justify-between items-center px-4 md:px-10 gap-3 max-w-7xl mx-auto">
           <div className="text-xs font-bold text-[#00236f]">ACQ Edu • Alinhamento Curricular Qualificado</div>
           <div className="text-xs text-slate-500 text-center md:text-left">
-            © 2026 ACQ Edu. Homenagem à Professora Aline Cristina Qualto. Todos os direitos reservados.
+            © 2026 ACQ Edu • Alinhamento Curricular Qualificado. Todos os direitos reservados.
           </div>
           <nav className="flex gap-4">
             <button type="button" onClick={() => toast('Termos de Privacidade: Seus dados permanecem 100% salvos no seu próprio navegador de forma segura.')} className="text-xs text-slate-500 hover:text-[#00236f] hover:underline">
@@ -296,130 +244,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
         </div>
       </footer>
 
-      {/* MODAL 1: Painel do Administrador (Gerador de Chaves de Licença) */}
-      {showAdminModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2 text-[#00236f]">
-                <Sparkles className="w-5 h-5" />
-                <h3 className="font-bold text-base">Painel do Administrador (Gerador)</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAdminModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
-              >
-                ✕
-              </button>
-            </div>
-
-            {!isAdminAuthenticated ? (
-              <form onSubmit={handleAdminAuth} className="space-y-4 py-4">
-                <p className="text-xs text-slate-600">
-                  Digite a senha mestra de administrador para gerar chaves de acesso para as professoras:
-                </p>
-                <div>
-                  <input
-                    type="password"
-                    className="input-field"
-                    placeholder="Senha de Administrador"
-                    value={adminPassword}
-                    onChange={e => setAdminPassword(e.target.value)}
-                    autoFocus
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">Dica: use sua senha master de administrador</p>
-                </div>
-                <button type="submit" className="btn-primary w-full text-xs py-2.5">
-                  Desbloquear Gerador de Chaves
-                </button>
-              </form>
-            ) : (
-              <div className="space-y-5 py-4">
-                <div>
-                  <label className="label text-xs">Selecione o Plano da Licença:</label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    {(['teste', 'mensal', 'trimestral', 'anual'] as const).map(p => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setSelectedPlan(p)}
-                        className={`text-xs py-2 px-3 rounded-lg border font-medium transition-all ${
-                          selectedPlan === p
-                            ? 'bg-[#00236f] text-white border-[#00236f] shadow-xs'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {p === 'teste' && 'Teste (3 Dias)'}
-                        {p === 'mensal' && 'Mensal (30 Dias)'}
-                        {p === 'trimestral' && 'Bimestral (90 Dias)'}
-                        {p === 'anual' && 'Anual (1 Ano)'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleGenerateKey}
-                  className="btn-primary w-full text-xs py-2.5 flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Gerar Nova Chave Criptografada</span>
-                </button>
-
-                {generatedKey && (
-                  <div className="bg-[#eff4ff] border border-blue-200 rounded-xl p-4 space-y-3">
-                    <div>
-                      <span className="text-[11px] font-semibold text-blue-800 uppercase tracking-wider">Chave Gerada:</span>
-                      <div className="font-mono text-sm font-bold text-[#00236f] bg-white p-2.5 rounded-lg border border-blue-100 select-all mt-1 flex items-center justify-between">
-                        <span>{generatedKey.key}</span>
-                        <button
-                          type="button"
-                          onClick={handleCopyKey}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                          title="Copiar Chave"
-                        >
-                          {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="text-[11px] text-blue-700 space-y-0.5">
-                      <p>• <strong>Plano:</strong> {generatedKey.planName}</p>
-                      <p>• <strong>Válido até:</strong> {generatedKey.expiresAt.toLocaleDateString('pt-BR')}</p>
-                    </div>
-
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleCopyWhatsAppMessage}
-                        className="btn-success flex-1 text-xs py-2 flex items-center justify-center gap-1.5"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copiar Mensagem WhatsApp</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLicenseKey(generatedKey.key);
-                          setShowAdminModal(false);
-                          toast.success('Chave inserida no campo de login!');
-                        }}
-                        className="btn-secondary text-xs py-2 px-3"
-                      >
-                        Usar Aqui
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: Ajuda & Suporte */}
+      {/* MODAL: Ajuda & Suporte */}
       {showHelpModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6">

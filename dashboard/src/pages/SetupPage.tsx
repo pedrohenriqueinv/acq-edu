@@ -89,7 +89,7 @@ export default function SetupPage() {
             className="input-field"
             value={form.teacherName}
             onChange={e => setForm(f => ({ ...f, teacherName: e.target.value }))}
-            placeholder="Ex: Aline Cristina Qualto Antonelle Miranda"
+            placeholder="Ex: Profª. Maria Silva"
           />
         </div>
 
