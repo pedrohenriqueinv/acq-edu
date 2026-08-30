@@ -245,12 +245,12 @@ function createFloatingWidget() {
   widget.innerHTML = `
     <div class="gemul-header">
       <span class="gemul-logo">🎓</span>
-      <span class="gemul-title">GEMUL Professor</span>
+      <span class="gemul-title">ACQ Edu — Injetor</span>
       <button class="gemul-minimize" id="gemul-minimize-btn">−</button>
     </div>
     <div class="gemul-body" id="gemul-body">
-      <div class="gemul-status" id="gemul-status">Pronto</div>
-      <div class="gemul-info" id="gemul-lesson-info">Aguardando aula...</div>
+      <div class="gemul-status" id="gemul-status">Pronto para Injetar</div>
+      <div class="gemul-info" id="gemul-lesson-info">Aguardando tela do GEMUL...</div>
       <div class="gemul-progress-wrap" id="gemul-progress-wrap" style="display:none">
         <div class="gemul-progress-bar">
           <div class="gemul-progress-fill" id="gemul-progress-fill"></div>
@@ -259,13 +259,13 @@ function createFloatingWidget() {
       </div>
       <div class="gemul-buttons">
         <button class="gemul-btn gemul-btn-primary" id="gemul-fill-btn">⚡ Preencher Esta Aula</button>
-        <button class="gemul-btn gemul-btn-success" id="gemul-auto-btn">🚀 Piloto Automático</button>
+        <button class="gemul-btn gemul-btn-success" id="gemul-auto-btn">🚀 Piloto Automático (Dia / Mês)</button>
         <button class="gemul-btn gemul-btn-secondary" id="gemul-stop-btn" style="display:none">⏸ Pausar</button>
         <button class="gemul-btn gemul-btn-secondary" id="gemul-resume-btn" style="display:none">▶ Retomar</button>
-        <label class="gemul-btn gemul-btn-import" for="gemul-import-file">📂 Importar JSON</label>
+        <label class="gemul-btn gemul-btn-import" for="gemul-import-file">📂 Importar JSON do ACQ</label>
         <input type="file" id="gemul-import-file" accept=".json" style="display:none" />
       </div>
-      <div class="gemul-footer">v1.0 • SEMED Anápolis</div>
+      <div class="gemul-footer">ACQ Edu • v1.0 Oficial</div>
     </div>
   `;
 

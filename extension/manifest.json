@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GEMUL Professor — Auto Planejamento",
+  "name": "ACQ Edu — Injetor Automático GEMUL",
   "version": "1.0.0",
-  "description": "Preenche automaticamente o planejamento de aulas no sistema GEMUL de Anápolis. Integrado com o Dashboard de Planejamento Docente.",
+  "description": "Preenche automaticamente em 1 clique o planejamento do dia e mês no sistema GEMUL. Integrado com a plataforma ACQ Edu.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
