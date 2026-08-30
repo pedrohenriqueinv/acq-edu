@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Zap, FileDown, RefreshCw, CheckCircle,
   Clock, Eye, AlertCircle, Loader2, Play, Pause,
-  Square, Sparkles, Check, ChevronRight, Target, BookOpen, Lightbulb, CheckSquare, RotateCcw, Database
+  Square, Sparkles, Check, ChevronRight, Target, BookOpen, Lightbulb, CheckSquare, RotateCcw, Database,
+  FileSpreadsheet, Code
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../store/useAppStore';
 import { db } from '../db';
 import { generateLesson } from '../services/ai';
 import { generatePDF } from '../services/pdf';
+import { generateExcel } from '../services/excel';
 import { normalizeDiscipline, normalizeBimestre } from '../services/normalizer';
 import { BNCC_1ANO } from '../data/bncc';
 import type { Lesson, Discipline, Bimestre } from '../types';
@@ -507,6 +509,54 @@ export default function CalendarPage() {
     toast.success(`🎉 ${sampleData.length} aulas de ${MONTH_NAMES[selectedMonth]}/${selectedYear} (${bimestre}) montadas com sucesso!`);
   };
 
+  const handleExportJSON = () => {
+    if (lessons.length === 0) {
+      toast.error('Nenhuma aula para exportar.');
+      return;
+    }
+    const exportData = {
+      version: '1.0.0',
+      exportedAt: new Date().toISOString(),
+      month: selectedMonth,
+      year: selectedYear,
+      monthName: MONTH_NAMES[selectedMonth],
+      teacher: config?.teacherName || '',
+      school: config?.schoolName || '',
+      grade: config?.grade || '',
+      totalLessons: lessons.length,
+      lessons: lessons.map(l => ({
+        id: l.id,
+        discipline: l.discipline,
+        lessonNumber: l.lessonNumber,
+        lessonDate: l.lessonDate,
+        month: l.month,
+        year: l.year,
+        grade: l.grade,
+        classGroup: l.classGroup,
+        bimestre: l.bimestre,
+        thematicUnit: l.thematicUnit,
+        skills: l.skills,
+        knowledgeObjects: l.knowledgeObjects,
+        methodology: l.methodology,
+        evaluation: l.evaluation,
+        status: l.status,
+        groupIndex: l.groupIndex,
+        groupSize: l.groupSize,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `planejamento_${MONTH_NAMES[selectedMonth].toLowerCase()}_${selectedYear}_gemul.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`🎉 JSON de ${MONTH_NAMES[selectedMonth]} exportado! Agora importe-o na extensão do GEMUL para preenchimento em 1 clique.`);
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -663,10 +713,29 @@ export default function CalendarPage() {
 
                   <button
                     onClick={() => config && generatePDF(lessons, config, selectedMonth, selectedYear)}
-                    className="btn-secondary text-xs flex items-center gap-1.5 py-2"
+                    className="btn-secondary text-xs flex items-center gap-1.5 py-2 hover:bg-red-50 text-slate-700 hover:text-red-700"
+                    title="Exportar documento PDF pronto para impressão ou envio à coordenação"
                   >
                     <FileDown className="w-4 h-4 text-red-600" />
-                    Exportar PDF
+                    <span>Exportar PDF</span>
+                  </button>
+
+                  <button
+                    onClick={() => config && generateExcel(lessons, config, selectedMonth, selectedYear)}
+                    className="btn-secondary text-xs flex items-center gap-1.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700"
+                    title="Exportar planilha Excel (.xlsx) com todas as matérias e resumos"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>Exportar Excel</span>
+                  </button>
+
+                  <button
+                    onClick={handleExportJSON}
+                    className="btn-secondary text-xs flex items-center gap-1.5 py-2 bg-purple-50 border-purple-200 text-purple-800 hover:bg-purple-100 font-semibold shadow-xs transition-all"
+                    title="Exportar arquivo JSON para injeção automática no GEMUL em 1 clique"
+                  >
+                    <Code className="w-4 h-4 text-purple-600" />
+                    <span>Exportar JSON (Extensão GEMUL)</span>
                   </button>
                 </div>
 
