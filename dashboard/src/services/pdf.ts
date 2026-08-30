@@ -18,12 +18,12 @@ export function generatePDF(lessons: Lesson[], config: TeacherConfig, month: num
     isFirstPage = false;
 
     // Header
-    doc.setFillColor(37, 99, 235); // blue-600
+    doc.setFillColor(0, 35, 111); // navy blue #00236f
     doc.rect(0, 0, 210, 32, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('PLANEJAMENTO DE AULAS — GEMUL ANAPOLIS', 105, 12, { align: 'center' });
+    doc.text('PLANEJAMENTO DE AULAS — ACQ EDU', 105, 12, { align: 'center' });
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.text(`Professora: ${config.teacherName}`, 15, 22);
@@ -51,7 +51,7 @@ export function generatePDF(lessons: Lesson[], config: TeacherConfig, month: num
         l.evaluation.substring(0, 80) + (l.evaluation.length > 80 ? '...' : ''),
       ]),
       styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
+      headStyles: { fillColor: [0, 35, 111], textColor: [255, 255, 255], fontStyle: 'bold' },
       columnStyles: {
         0: { cellWidth: 12 },
         1: { cellWidth: 18 },
@@ -72,7 +72,7 @@ export function generatePDF(lessons: Lesson[], config: TeacherConfig, month: num
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(
-      `GEMUL Professor — Gerado automaticamente | Pagina ${i} de ${totalPages}`,
+      `ACQ Edu — Planejamento Docente Oficial | Pagina ${i} de ${totalPages}`,
       105, 290, { align: 'center' }
     );
   }

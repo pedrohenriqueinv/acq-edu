@@ -72,10 +72,10 @@ export default function Layout() {
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-[#00236f] tracking-tight">ACQ Edu</span>
               <span className="hidden sm:inline-block px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-semibold rounded-full border border-blue-200">
-                v2.0 Oficial
+                v1.0 Oficial
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden md:block">Alinhamento Curricular Qualificado • SEMED Anápolis</p>
+            <p className="text-[11px] text-slate-500 hidden md:block">Alinhamento Curricular Qualificado • BNCC 2026</p>
           </div>
         </div>
 

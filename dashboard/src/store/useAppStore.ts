@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import type { TeacherConfig, MatrixSkill, Lesson, Discipline } from '../types';
 import { db, getConfig, saveConfig } from '../db';
 
@@ -30,8 +30,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   matrixSkills: [],
   isLoading: false,
   error: null,
-  selectedMonth: new Date().getMonth() + 1,
-  selectedYear: new Date().getFullYear(),
+  selectedMonth: 8,
+  selectedYear: 2026,
 
   loadConfig: async () => {
     const config = await getConfig();

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Calendar, Zap, FileDown, Table, RefreshCw, CheckCircle,
-  Clock, Eye, AlertCircle, Download, Loader2, Play, Pause,
+  Calendar, Zap, FileDown, RefreshCw, CheckCircle,
+  Clock, Eye, AlertCircle, Loader2, Play, Pause,
   Square, Sparkles, Check, ChevronRight, Target, BookOpen, Lightbulb, CheckSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -10,7 +10,6 @@ import { useAppStore } from '../store/useAppStore';
 import { db } from '../db';
 import { generateLesson } from '../services/ai';
 import { generatePDF } from '../services/pdf';
-import { generateExcel } from '../services/excel';
 import { normalizeDiscipline, normalizeBimestre } from '../services/normalizer';
 import type { Lesson, Discipline, Bimestre } from '../types';
 
@@ -288,64 +287,127 @@ export default function CalendarPage() {
       setTimeout(() => navigate('/matriz'), 1000);
       return;
     }
-
-    const matrixByDisc = allMatrixSkills.reduce((acc, s) => {
+        const matrixByDisc = allMatrixSkills.reduce((acc, s) => {
       const norm = normalizeDiscipline(s.discipline);
       if (!acc[norm]) acc[norm] = [];
       acc[norm].push(s);
       return acc;
     }, {} as Record<string, typeof allMatrixSkills>);
 
-    // Grade exata de Agosto de 2026 dos prints oficiais do GEMUL
+    // Gera a grade de aulas dinamicamente para o mês e ano selecionados
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const mondays: number[] = [];
+    const tuesdays: number[] = [];
+    const wednesdays: number[] = [];
+    const thursdays: number[] = [];
+    const fridays: number[] = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayOfWeek = new Date(selectedYear, selectedMonth - 1, d).getDay();
+      if (dayOfWeek === 1) mondays.push(d);
+      if (dayOfWeek === 2) tuesdays.push(d);
+      if (dayOfWeek === 3) wednesdays.push(d);
+      if (dayOfWeek === 4) thursdays.push(d);
+      if (dayOfWeek === 5) fridays.push(d);
+    }
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const mStr = pad(selectedMonth);
+
+    const arteDates = (fridays.length >= 4 ? fridays.slice(0, 4) : fridays).map((d, i) => ({
+      num: 21 + i,
+      date: `${pad(d)}/${mStr}/${selectedYear}`,
+      day: 'Sexta'
+    }));
+
+    const cienciasDates: { num: number; date: string; day: string }[] = [];
+    const wedList = wednesdays.length >= 4 ? wednesdays.slice(0, 4) : wednesdays;
+    let cCount = 0;
+    for (const w of wedList) {
+      for (let k = 0; k < 3; k++) {
+        if (cCount < 12) {
+          cienciasDates.push({ num: 67 + cCount, date: `${pad(w)}/${mStr}/${selectedYear}`, day: 'Quarta' });
+          cCount++;
+        }
+      }
+    }
+
+    const edfDates = (fridays.length >= 4 ? fridays.slice(0, 4) : fridays).map((d, i) => ({
+      num: 21 + i,
+      date: `${pad(d)}/${mStr}/${selectedYear}`,
+      day: 'Sexta'
+    }));
+
+    const erDates = (thursdays.length >= 4 ? thursdays.slice(0, 4) : thursdays).map((d, i) => ({
+      num: 22 + i,
+      date: `${pad(d)}/${mStr}/${selectedYear}`,
+      day: 'Quinta'
+    }));
+
+    const geoDates: { num: number; date: string; day: string }[] = [];
+    const tueList = tuesdays.length >= 4 ? tuesdays.slice(0, 4) : tuesdays;
+    let gCount = 0;
+    for (const t of tueList) {
+      for (let k = 0; k < 3; k++) {
+        if (gCount < 12) {
+          geoDates.push({ num: 64 + gCount, date: `${pad(t)}/${mStr}/${selectedYear}`, day: 'Terça' });
+          gCount++;
+        }
+      }
+    }
+
+    const histDates: { num: number; date: string; day: string }[] = [];
+    const monList = mondays.length >= 4 ? mondays.slice(0, 4) : mondays;
+    let hCount = 0;
+    for (const m of monList) {
+      for (let k = 0; k < 3; k++) {
+        if (hCount < 12) {
+          histDates.push({ num: 64 + hCount, date: `${pad(m)}/${mStr}/${selectedYear}`, day: 'Segunda' });
+          hCount++;
+        }
+      }
+    }
+
+    const lpDates: { num: number; date: string; day: string }[] = [];
+    let lpCount = 0;
+    for (let w = 0; w < 4; w++) {
+      const weekDays = [mondays[w], tuesdays[w], wednesdays[w], thursdays[w], fridays[w]].filter(Boolean);
+      for (const d of weekDays) {
+        if (lpCount < 20) {
+          lpDates.push({ num: 106 + lpCount, date: `${pad(d)}/${mStr}/${selectedYear}`, day: 'Dia Útil' });
+          lpCount++;
+        }
+      }
+    }
+
+    const matDates: { num: number; date: string; day: string }[] = [];
+    let matCount = 0;
+    for (let w = 0; w < 4; w++) {
+      const weekDays = [mondays[w], tuesdays[w], wednesdays[w], thursdays[w], fridays[w]].filter(Boolean);
+      for (const d of weekDays) {
+        if (matCount < 20) {
+          matDates.push({ num: 106 + matCount, date: `${pad(d)}/${mStr}/${selectedYear}`, day: 'Dia Útil' });
+          matCount++;
+        }
+      }
+    }
+
+    const prodDates = (thursdays.length >= 4 ? thursdays.slice(0, 4) : thursdays).map((d, i) => ({
+      num: 22 + i,
+      date: `${pad(d)}/${mStr}/${selectedYear}`,
+      day: 'Quinta'
+    }));
+
     const schedule: { discipline: Discipline; lessons: { num: number; date: string; day: string }[] }[] = [
-      {
-        discipline: 'Arte',
-        lessons: [
-          { num: 21, date: '07/08', day: 'Sexta' }, { num: 22, date: '14/08', day: 'Sexta' },
-          { num: 23, date: '21/08', day: 'Sexta' }, { num: 24, date: '28/08', day: 'Sexta' },
-        ]
-      },
-      {
-        discipline: 'Ciencias',
-        lessons: Array.from({ length: 12 }, (_, i) => ({ num: 67 + i, date: `${(Math.floor(i / 3) * 7 + 5).toString().padStart(2, '0')}/08`, day: 'Quarta' }))
-      },
-      {
-        discipline: 'Educacao Fisica',
-        lessons: [
-          { num: 21, date: '07/08', day: 'Sexta' }, { num: 22, date: '14/08', day: 'Sexta' },
-          { num: 23, date: '21/08', day: 'Sexta' }, { num: 24, date: '28/08', day: 'Sexta' },
-        ]
-      },
-      {
-        discipline: 'Ensino Religioso',
-        lessons: [
-          { num: 22, date: '06/08', day: 'Quinta' }, { num: 23, date: '13/08', day: 'Quinta' },
-          { num: 24, date: '20/08', day: 'Quinta' }, { num: 25, date: '27/08', day: 'Quinta' },
-        ]
-      },
-      {
-        discipline: 'Geografia',
-        lessons: Array.from({ length: 12 }, (_, i) => ({ num: 64 + i, date: `${(Math.floor(i / 3) * 7 + 4).toString().padStart(2, '0')}/08`, day: 'Terça' }))
-      },
-      {
-        discipline: 'Historia',
-        lessons: Array.from({ length: 12 }, (_, i) => ({ num: 64 + i, date: `${(Math.floor(i / 3) * 7 + 10).toString().padStart(2, '0')}/08`, day: 'Segunda' }))
-      },
-      {
-        discipline: 'Lingua Portuguesa',
-        lessons: Array.from({ length: 20 }, (_, i) => ({ num: 106 + i, date: `${(Math.floor(i / 5) * 7 + 4).toString().padStart(2, '0')}/08`, day: i % 5 === 0 ? 'Terça' : 'Quarta' }))
-      },
-      {
-        discipline: 'Matematica',
-        lessons: Array.from({ length: 20 }, (_, i) => ({ num: 106 + i, date: `${(Math.floor(i / 5) * 7 + 5).toString().padStart(2, '0')}/08`, day: 'Quarta' }))
-      },
-      {
-        discipline: 'Producao Textual',
-        lessons: [
-          { num: 22, date: '06/08', day: 'Quinta' }, { num: 23, date: '13/08', day: 'Quinta' },
-          { num: 24, date: '20/08', day: 'Quinta' }, { num: 25, date: '27/08', day: 'Quinta' },
-        ]
-      },
+      { discipline: 'Arte', lessons: arteDates },
+      { discipline: 'Ciencias', lessons: cienciasDates },
+      { discipline: 'Educacao Fisica', lessons: edfDates },
+      { discipline: 'Ensino Religioso', lessons: erDates },
+      { discipline: 'Geografia', lessons: geoDates },
+      { discipline: 'Historia', lessons: histDates },
+      { discipline: 'Lingua Portuguesa', lessons: lpDates },
+      { discipline: 'Matematica', lessons: matDates },
+      { discipline: 'Producao Textual', lessons: prodDates },
     ];
 
     const sampleData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>[] = [];
@@ -356,7 +418,6 @@ export default function CalendarPage() {
       const skillsToUse = availableSkills.length > 0 ? availableSkills : (matrixByDisc[norm] || []);
 
       lessonList.forEach((item, index) => {
-        // Mapeia sequencialmente o item da matriz correspondente a esta aula
         const matrixIndex = skillsToUse.length > 0 ? index % skillsToUse.length : 0;
         const mappedSkill = skillsToUse.length > 0 ? skillsToUse[matrixIndex] : null;
         const thematicUnit = mappedSkill?.thematicUnit || 'Unidade Temática';
@@ -370,7 +431,7 @@ export default function CalendarPage() {
         sampleData.push({
           discipline: norm as Discipline,
           lessonNumber: item.num,
-          lessonDate: `${item.date}/${selectedYear}`,
+          lessonDate: item.date,
           month: selectedMonth,
           year: selectedYear,
           grade: config.grade,
@@ -449,14 +510,12 @@ export default function CalendarPage() {
           <p className="text-xs text-yellow-700 font-medium mt-1">Geradas com a Matriz</p>
         </div>
         <div className="card text-center py-4 bg-emerald-50/50 border-emerald-200">
-          <p className="text-3xl font-bold text-emerald-600">
-            {lessons.filter(l => l.status === 'reviewed').length}
-          </p>
-          <p className="text-xs text-emerald-700 font-medium mt-1">Revisadas</p>
+          <p className="text-3xl font-bold text-emerald-600">{injectedCount}</p>
+          <p className="text-xs text-emerald-700 font-medium mt-1">Enviadas ao GEMUL</p>
         </div>
         <div className="card text-center py-4 bg-blue-50/50 border-blue-200">
           <p className="text-3xl font-bold text-blue-600">
-            {totalLessons > 0 ? Math.round((generatedCount / totalLessons) * 100) : 0}%
+            {totalLessons > 0 ? `${Math.round((generatedCount / totalLessons) * 100)}%` : '0%'}
           </p>
           <p className="text-xs text-blue-700 font-medium mt-1">Progresso do Mês</p>
         </div>
@@ -476,7 +535,7 @@ export default function CalendarPage() {
             </button>
           </div>
         ) : (
-          <>
+          <div className="flex flex-wrap items-center gap-3 w-full justify-between">
             <div className="flex flex-wrap items-center gap-3">
               {/* MODO B: PILOTO TOTAL */}
               <button
@@ -495,34 +554,8 @@ export default function CalendarPage() {
                 <FileDown className="w-4 h-4 text-red-600" />
                 Exportar PDF
               </button>
-
-              <button
-                onClick={() => config && generateExcel(lessons, config, selectedMonth, selectedYear)}
-                className="btn-secondary text-xs flex items-center gap-1.5 py-2"
-              >
-                <Table className="w-4 h-4 text-emerald-600" />
-                Exportar Excel
-              </button>
-
-              <button onClick={handleExportJSON} className="btn-secondary text-xs flex items-center gap-1.5 py-2">
-                <Download className="w-4 h-4 text-blue-600" />
-                Exportar JSON
-              </button>
             </div>
-
-            <button
-              onClick={async () => {
-                if (confirm('Deseja limpar as aulas deste mês?')) {
-                  await db.lessons.filter(l => l.month === selectedMonth && l.year === selectedYear).delete();
-                  await loadLessons();
-                  toast.success('Aulas removidas.');
-                }
-              }}
-              className="text-xs text-red-600 hover:text-red-800 px-3 py-1.5"
-            >
-              Limpar Mês
-            </button>
-          </>
+          </div>
         )}
       </div>
 

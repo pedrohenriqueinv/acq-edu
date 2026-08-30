@@ -12,8 +12,50 @@ export interface AuthSession {
   teacherName?: string;
 }
 
+export interface UserAccount {
+  email: string;
+  passwordHash: string;
+  createdAt: string;
+}
+
 const STORAGE_KEY = 'acq_edu_auth_session';
+const USERS_STORAGE_KEY = 'acq_edu_registered_users';
 const SECRET_SALT = 'ACQ_EDU_ALINE_CRISTINA_QUALTO_2026';
+
+/**
+ * Autentica o usuário com email e senha, ou registra o novo usuário no primeiro acesso com a chave
+ */
+export function authenticateUser(email: string, password: string): { success: boolean; isNewUser: boolean; error?: string } {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanPassword = password.trim();
+
+  if (!cleanEmail) return { success: false, isNewUser: false, error: 'Digite seu e-mail.' };
+  if (!cleanPassword || cleanPassword.length < 3) return { success: false, isNewUser: false, error: 'A senha deve ter pelo menos 3 caracteres.' };
+
+  let users: Record<string, UserAccount> = {};
+  try {
+    const rawUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    if (rawUsers) users = JSON.parse(rawUsers);
+  } catch {}
+
+  const existingUser = users[cleanEmail];
+
+  if (existingUser) {
+    if (existingUser.passwordHash !== cleanPassword) {
+      return { success: false, isNewUser: false, error: 'Senha incorreta para este e-mail.' };
+    }
+    return { success: true, isNewUser: false };
+  } else {
+    // Registra a senha vinculada a este e-mail
+    users[cleanEmail] = {
+      email: cleanEmail,
+      passwordHash: cleanPassword,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    return { success: true, isNewUser: true };
+  }
+}
 
 /**
  * Gera um hash simples e seguro baseado em semente para validar chaves sem backend
@@ -81,7 +123,6 @@ export function validateLicenseKey(rawKey: string): { isValid: boolean; expiresA
 
   const parts = clean.split('-');
   if (parts.length !== 5 && parts.length !== 4) {
-    // Aceita formato padrão ACQ-MEN-AGO26-XXXX-YYYY ou ACQ-XXXX-XXXX-XXXX
     if (clean.startsWith('ACQ-')) {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);

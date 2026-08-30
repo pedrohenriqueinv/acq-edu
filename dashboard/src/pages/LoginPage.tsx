@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Mail, Lock, Key, Info, ArrowRight, ShieldCheck, HelpCircle, Sparkles, Copy, Check, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { validateLicenseKey, saveAuthSession, generateLicenseKey } from '../services/license';
+import { validateLicenseKey, saveAuthSession, generateLicenseKey, authenticateUser } from '../services/license';
 
 interface LoginPageProps {
   onSuccess: () => void;
@@ -31,6 +31,14 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
 
     setIsLoading(true);
 
+    // 1. Valida senha vinculada ao e-mail
+    const authResult = authenticateUser(email, password);
+    if (!authResult.success) {
+      setIsLoading(false);
+      return toast.error(authResult.error || 'Senha incorreta para este e-mail.');
+    }
+
+    // 2. Valida chave de licença
     const validation = validateLicenseKey(licenseKey);
 
     if (!validation.isValid || !validation.expiresAt) {
@@ -40,7 +48,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
 
     // Salva a sessão autenticada com o prazo de validade da chave
     saveAuthSession({
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       licenseKey: licenseKey.trim().toUpperCase(),
       activatedAt: new Date().toISOString(),
       expiresAt: validation.expiresAt.toISOString(),
@@ -430,7 +438,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
             </div>
             <div className="space-y-4 py-4 text-xs text-slate-600 leading-relaxed">
               <p>
-                O <strong>ACQ Edu</strong> é o ecossistema de planejamento docente alinhado à BNCC, DC-GO e SEMED Anápolis.
+                O <strong>ACQ Edu</strong> é o ecossistema de planejamento docente alinhado à BNCC e Diretrizes Curriculares Nacionais.
               </p>
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5">
                 <p className="font-semibold text-slate-800">Como funciona o acesso?</p>
