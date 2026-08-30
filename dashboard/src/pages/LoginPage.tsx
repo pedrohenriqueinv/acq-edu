@@ -95,9 +95,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
       <header className="bg-[#f8f9ff] fixed top-0 w-full border-b border-[#c5c5d3]/40 shadow-xs z-50 transition-colors duration-200">
         <div className="flex justify-between items-center h-16 px-4 md:px-10 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#00236f] rounded-xl flex items-center justify-center shadow-md">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="ACQ Edu Logo" className="w-10 h-10 object-contain rounded-xl shadow-xs" />
             <div>
               <span className="text-xl font-bold tracking-tight text-[#00236f]">ACQ Edu</span>
               <span className="hidden sm:inline-block ml-2 text-xs font-medium text-slate-500">• Alinhamento Curricular Qualificado</span>
@@ -134,8 +132,8 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
           <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,35,111,0.06)] border border-[#eff4ff] p-8 md:p-10 transition-all">
             {/* Card Header */}
             <div className="text-center mb-8">
-              <div className="inline-flex p-3 bg-blue-50 text-[#00236f] rounded-2xl mb-3 shadow-xs">
-                <ShieldCheck className="w-8 h-8 text-[#00236f]" />
+              <div className="flex justify-center mb-3">
+                <img src="/logo.png" alt="ACQ Edu Logo" className="w-24 h-24 object-contain drop-shadow-sm rounded-2xl" />
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-[#0d1c2f] mb-1.5">Bem-vindo</h1>
               <p className="text-sm text-slate-600">Acesse sua conta do <strong>ACQ Edu</strong>.</p>

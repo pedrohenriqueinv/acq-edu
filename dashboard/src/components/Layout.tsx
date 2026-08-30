@@ -67,9 +67,7 @@ export default function Layout() {
       {/* Top Navbar */}
       <header className="bg-white border-b border-slate-200 h-16 sticky top-0 z-40 shadow-xs flex items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-[#00236f] rounded-xl flex items-center justify-center shadow-md">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
+          <img src="/logo.png" alt="ACQ Edu Logo" className="w-10 h-10 object-contain rounded-xl shadow-xs" />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-[#00236f] tracking-tight">ACQ Edu</span>
@@ -161,8 +159,8 @@ export default function Layout() {
 
           {/* Footer Tribute */}
           <div className="p-4 border-t border-slate-100 space-y-1 text-center">
-            <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#00236f]">
-              <BookOpen className="w-3.5 h-3.5" />
+            <img src="/logo.png" alt="ACQ Edu" className="w-10 h-10 object-contain mx-auto mb-1 rounded-xl shadow-2xs" />
+            <div className="flex items-center justify-center gap-1 text-xs font-bold text-[#00236f]">
               <span>ACQ Edu • 2026</span>
             </div>
             <p className="text-[10px] text-slate-400">
